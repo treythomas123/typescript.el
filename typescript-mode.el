@@ -2386,46 +2386,54 @@ moved on success."
                  (continued-expr-p (typescript--continued-expression-p))
                  (list-start (nth 1 parse-status)))
              (goto-char list-start)
-             (if (looking-at "[({[]\\s-*\\(/[/*]\\|$\\)")
+             (if (looking-at ".*=>\\s-*\\(/[/*]\\|$\\)")
+                 ;; inside the body of a concise arrow function
                  (progn
-                   (skip-syntax-backward " ")
-                   (cond
-                    ((or (typescript--backward-to-parameter-list)
-                         (eq (char-before) ?\)))
-                     ;; Take the curly brace as marking off the body of a function.
-                     ;; In that case, we want the code that follows to see the indentation
-                     ;; that was in effect at the beginning of the function declaration, and thus
-                     ;; we want to move back over the list of function parameters.
-                     (backward-list))
-                    ((looking-back "," nil)
-                     ;; If we get here, we have a comma, spaces and an opening curly brace. (And
-                     ;; (point) is just after the comma.) We don't want to move from the current position
-                     ;; so that object literals in parameter lists are properly indented.
-                     nil)
-                    (t
-                     ;; In all other cases, we don't want to move from the curly brace.
-                     (goto-char list-start)))
+                   (message "concise arrow detected")
                    (back-to-indentation)
-                   (let* ((in-switch-p (unless same-indent-p
-                                         (looking-at "\\_<switch\\_>")))
-                          (same-indent-p (or same-indent-p
-                                             (and switch-keyword-p
-                                                  in-switch-p)))
-                          (indent
-                           (cond (same-indent-p
-                                  (current-column))
-                                 (continued-expr-p
-                                  (+ (current-column) (* 2 typescript-indent-level)
-                                     typescript-expr-indent-offset))
-                                 (t
-                                  (+ (current-column) typescript-indent-level)))))
-                     (if (and in-switch-p typescript-indent-switch-clauses)
-                         (+ indent typescript-indent-level)
-                       indent)))
-               (unless same-indent-p
-                 (forward-char)
-                 (skip-chars-forward " \t"))
-               (current-column))))
+                   (+ (current-column) (if same-indent-p 0 typescript-indent-level)
+                      typescript-expr-indent-offset)
+                   )
+               (if (looking-at "[({[]\\s-*\\(/[/*]\\|$\\)")
+                   (progn
+                     (skip-syntax-backward " ")
+                     (cond
+                       ((or (typescript--backward-to-parameter-list)
+                           (eq (char-before) ?\)))
+                       ;; Take the curly brace as marking off the body of a function.
+                       ;; In that case, we want the code that follows to see the indentation
+                       ;; that was in effect at the beginning of the function declaration, and thus
+                       ;; we want to move back over the list of function parameters.
+                       (backward-list))
+                       ((looking-back "," nil)
+                       ;; If we get here, we have a comma, spaces and an opening curly brace. (And
+                       ;; (point) is just after the comma.) We don't want to move from the current position
+                       ;; so that object literals in parameter lists are properly indented.
+                       nil)
+                       (t
+                       ;; In all other cases, we don't want to move from the curly brace.
+                       (goto-char list-start)))
+                     (back-to-indentation)
+                     (let* ((in-switch-p (unless same-indent-p
+                                           (looking-at "\\_<switch\\_>")))
+                             (same-indent-p (or same-indent-p
+                                               (and switch-keyword-p
+                                                     in-switch-p)))
+                             (indent
+                             (cond (same-indent-p
+                                     (current-column))
+                                   (continued-expr-p
+                                     (+ (current-column) (* 2 typescript-indent-level)
+                                       typescript-expr-indent-offset))
+                                   (t
+                                     (+ (current-column) typescript-indent-level)))))
+                       (if (and in-switch-p typescript-indent-switch-clauses)
+                           (+ indent typescript-indent-level)
+                         indent)))
+                 (unless same-indent-p
+                   (forward-char)
+                   (skip-chars-forward " \t"))
+                 (current-column)))))
 
           ((typescript--continued-expression-p)
            (+ typescript-indent-level typescript-expr-indent-offset))
